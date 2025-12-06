@@ -119,9 +119,9 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF6B46C1),
-              const Color(0xFF9333EA),
-              const Color(0xFFEC4899),
+              Colors.black,
+              Colors.grey.shade900,
+              Colors.grey.shade800,
             ],
           ),
         ),

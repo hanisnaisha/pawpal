@@ -88,14 +88,57 @@ try {
         sendJsonResponse(array('status' => 'failed', 'message' => 'Email already registered'));
     }
     
-    // Check if table is empty and reset AUTO_INCREMENT to 1
-    $countResult = $conn->query("SELECT COUNT(*) as count FROM tbl_users");
-    if ($countResult) {
-        $countRow = $countResult->fetch_assoc();
-        if ($countRow['count'] == 0) {
-            // Reset AUTO_INCREMENT to 1 when table is empty
-            $resetAutoIncrement = "ALTER TABLE tbl_users AUTO_INCREMENT = 1";
-            $conn->query($resetAutoIncrement);
+    // Reorder user_id sequentially if there are gaps
+    $reorderResult = $conn->query("SELECT user_id FROM tbl_users ORDER BY user_id ASC");
+    if ($reorderResult && $reorderResult->num_rows > 0) {
+        $users = $reorderResult->fetch_all(MYSQLI_ASSOC);
+        $expectedId = 1;
+        $needsReorder = false;
+        
+        // Check if reordering is needed
+        foreach ($users as $user) {
+            if ($user['user_id'] != $expectedId) {
+                $needsReorder = true;
+                break;
+            }
+            $expectedId++;
+        }
+        
+        // Reorder if needed
+        if ($needsReorder) {
+            // Step 1: Set all user_ids to negative values to avoid conflicts
+            $tempId = -1;
+            foreach ($users as $user) {
+                $oldId = $user['user_id'];
+                $conn->query("UPDATE tbl_users SET user_id = $tempId WHERE user_id = $oldId");
+                $conn->query("UPDATE tbl_pets SET user_id = $tempId WHERE user_id = $oldId");
+                $tempId--;
+            }
+            
+            // Step 2: Set user_ids to sequential positive values
+            $newId = 1;
+            $tempId = -1;
+            foreach ($users as $user) {
+                $conn->query("UPDATE tbl_users SET user_id = $newId WHERE user_id = $tempId");
+                $conn->query("UPDATE tbl_pets SET user_id = $newId WHERE user_id = $tempId");
+                $newId++;
+                $tempId--;
+            }
+            
+            // Reset AUTO_INCREMENT
+            $nextId = count($users) + 1;
+            $conn->query("ALTER TABLE tbl_users AUTO_INCREMENT = $nextId");
+        }
+    } else {
+        // Check if table is empty and reset AUTO_INCREMENT to 1
+        $countResult = $conn->query("SELECT COUNT(*) as count FROM tbl_users");
+        if ($countResult) {
+            $countRow = $countResult->fetch_assoc();
+            if ($countRow['count'] == 0) {
+                // Reset AUTO_INCREMENT to 1 when table is empty
+                $resetAutoIncrement = "ALTER TABLE tbl_users AUTO_INCREMENT = 1";
+                $conn->query($resetAutoIncrement);
+            }
         }
     }
     

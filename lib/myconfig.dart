@@ -1,3 +1,3 @@
 class MyConfig {
-  String baseUrl = "http://10.29.197.12";
+  String baseUrl = "http://10.29.199.64";
 }

@@ -50,8 +50,8 @@ class _RegisterPageState extends State<RegisterPage> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF6B46C1).withOpacity(0.1),
-              const Color(0xFF9333EA).withOpacity(0.05),
+              Colors.black.withOpacity(0.1),
+              Colors.black.withOpacity(0.05),
               Colors.white,
             ],
           ),
@@ -70,13 +70,13 @@ class _RegisterPageState extends State<RegisterPage> {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6B46C1).withOpacity(0.1),
+                        color: Colors.black.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.pets,
                         size: 64,
-                        color: Color(0xFF6B46C1),
+                        color: Colors.black,
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -240,7 +240,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _register,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6B46C1),
+                          backgroundColor: Colors.black,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),

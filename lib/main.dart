@@ -15,7 +15,7 @@ class MainApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6B46C1), // Pet-friendly purple
+          seedColor: Colors.black,
           brightness: Brightness.light,
         ),
         inputDecorationTheme: InputDecorationTheme(
@@ -31,7 +31,7 @@ class MainApp extends StatelessWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF6B46C1), width: 2),
+            borderSide: const BorderSide(color: Colors.black, width: 2),
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
@@ -45,7 +45,7 @@ class MainApp extends StatelessWidget {
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF6B46C1),
+            backgroundColor: Colors.black,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             shape: RoundedRectangleBorder(
@@ -56,7 +56,7 @@ class MainApp extends StatelessWidget {
         ),
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
-            foregroundColor: const Color(0xFF6B46C1),
+            foregroundColor: Colors.black,
           ),
         ),
       ),
