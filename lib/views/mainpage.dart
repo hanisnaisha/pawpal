@@ -6,6 +6,10 @@ import 'package:pawpal/models/user.dart';
 import 'package:pawpal/models/pet.dart';
 import 'package:pawpal/views/loginpage.dart';
 import 'package:pawpal/views/submitpetpage.dart';
+import 'package:pawpal/views/public_pets_page.dart';
+import 'package:pawpal/views/pet_details_page.dart';
+import 'package:pawpal/views/my_donations_page.dart';
+import 'package:pawpal/views/profile_page.dart';
 import 'package:pawpal/myconfig.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,17 +21,36 @@ class MainPage extends StatefulWidget {
   State<MainPage> createState() => _MainPageState();
 }
 
+/**
+ * Main Page State
+ * 
+ * This is the home screen showing pets submitted by the logged-in user.
+ * 
+ * Features:
+ * - Displays user's submitted pets in a grid/list view
+ * - Search functionality (filter by pet name)
+ * - Filter by pet type (All, Cat, Dog, Rabbit, Others)
+ * - Bottom navigation to access other screens
+ * - Pull-to-refresh to reload pets
+ * 
+ * Navigation:
+ * - Index 0: Home (current screen)
+ * - Index 1: Public Pets (all pets)
+ * - Index 2: Submit Pet
+ * - Index 3: My Donations
+ * - Index 4: Profile
+ */
 class _MainPageState extends State<MainPage> {
-  User? _currentUser;
-  List<Pet> _pets = [];
-  List<Pet> _filteredPets = [];
-  bool _isLoading = true;
-  String _searchQuery = '';
-  String _selectedFilter = 'All';
-  final TextEditingController _searchController = TextEditingController();
-  final ScrollController _filterScrollController = ScrollController();
+  User? _currentUser;  // Current logged-in user
+  List<Pet> _pets = [];  // All pets submitted by current user
+  List<Pet> _filteredPets = [];  // Filtered pets based on search/filter criteria
+  bool _isLoading = true;  // Loading state for initial data fetch
+  String _searchQuery = '';  // Current search query text
+  String _selectedFilter = 'All';  // Currently selected pet type filter
+  final TextEditingController _searchController = TextEditingController();  // Search input controller
+  final ScrollController _filterScrollController = ScrollController();  // Scroll controller for filter chips
 
-  // Pet type filters
+  // Available pet type filter options
   final List<String> _petTypeFilters = ['All', 'Cat', 'Dog', 'Rabbit', 'Others'];
 
   @override
@@ -35,6 +58,41 @@ class _MainPageState extends State<MainPage> {
     super.initState();
     _currentUser = widget.user;
     _loadPets();
+  }
+
+  Future<void> _refreshUserData() async {
+    if (_currentUser == null || _currentUser!.userId == null) return;
+    
+    try {
+      String baseUrl = MyConfig().baseUrl;
+      if (baseUrl.endsWith('/')) {
+        baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+      }
+      
+      // Get fresh user data from server
+      String url = "$baseUrl/pawpal/api/get_user_profile.php?user_id=${_currentUser!.userId}";
+      var response = await http.get(Uri.parse(url)).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          throw Exception('Connection timeout');
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        var jsondata = jsonDecode(response.body);
+        if (jsondata['status'] == 'success' && jsondata['data'] != null) {
+          setState(() {
+            _currentUser = User.fromJson(jsondata['data']);
+          });
+          
+          // Update SharedPreferences
+          SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setString('user_data', jsonEncode(_currentUser!.toJson()));
+        }
+      }
+    } catch (e) {
+      print("Error refreshing user data: $e");
+    }
   }
 
 
@@ -45,13 +103,32 @@ class _MainPageState extends State<MainPage> {
     super.dispose();
   }
 
+  /**
+   * Load Pets from API
+   * 
+   * Fetches all pets submitted by the current logged-in user from the server.
+   * 
+   * Process:
+   * 1. Set loading state to true (show loading indicator)
+   * 2. Make GET request to get_my_pets.php API with user_id
+   * 3. Parse JSON response
+   * 4. Convert JSON data to Pet objects
+   * 5. Update state with pet list
+   * 6. Apply current search/filter to display filtered pets
+   * 
+   * Error Handling:
+   * - Network errors → Shows empty list
+   * - API errors → Shows empty list
+   * - Always sets loading to false when done
+   */
   Future<void> _loadPets() async {
     setState(() {
-      _isLoading = true;
+      _isLoading = true;  // Show loading indicator
     });
 
     try {
       // Fetch pets for the logged-in user only
+      // get_my_pets.php returns only pets where user_id matches
       String userId = _currentUser?.userId ?? '';
       var response = await http.get(
         Uri.parse("${MyConfig().baseUrl}/pawpal/api/get_my_pets.php?user_id=$userId"),
@@ -368,22 +445,56 @@ class _MainPageState extends State<MainPage> {
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.home),
-              label: 'Home',
+              label: 'My Pets',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.pets),
+              label: 'Browse',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.add_circle_outline),
               label: 'Add Pet',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.logout),
-              label: 'Logout',
+              icon: Icon(Icons.card_giftcard),
+              label: 'Donations',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person),
+              label: 'Profile',
             ),
           ],
           onTap: (index) {
             if (index == 1) {
-              _navigateToAddPet();
+              // Browse Public Pets
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PublicPetsPage(currentUser: _currentUser),
+                ),
+              );
             } else if (index == 2) {
-              _logout();
+              _navigateToAddPet();
+            } else if (index == 3) {
+              // My Donations
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MyDonationsPage(currentUser: _currentUser),
+                ),
+              );
+            } else if (index == 4) {
+              // Profile
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfilePage(currentUser: _currentUser),
+                ),
+              ).then((_) async {
+                // Refresh user data if profile was updated
+                await _refreshUserData();
+                _loadPets();
+              });
             }
             // Index 0 (Home) does nothing as we're already on home
           },
@@ -413,7 +524,15 @@ class _MainPageState extends State<MainPage> {
       ),
       child: InkWell(
         onTap: () {
-          // TODO: Navigate to pet details page
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PetDetailsPage(
+                pet: pet,
+                currentUser: _currentUser,
+              ),
+            ),
+          );
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(

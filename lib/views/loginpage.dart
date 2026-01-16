@@ -283,9 +283,28 @@ class _LoginPageState extends State<LoginPage> {
       String email = _emailController.text.trim();
       String password = _passwordController.text;
 
+      // Fix double slash issue - baseUrl ends with /, so remove leading / from path
+      String baseUrl = MyConfig().baseUrl;
+      if (baseUrl.endsWith('/')) {
+        baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+      }
+      String url = "$baseUrl/pawpal/api/login_user.php";
+      
+      print("=== LOGIN REQUEST ===");
+      print("URL: $url");
+      print("Method: POST");
+      print("Email: $email");
+      print("====================");
+
       var response = await http.post(
-        Uri.parse("${MyConfig().baseUrl}/pawpal/api/login_user.php"),
+        Uri.parse(url),
         body: {"email": email, "password": password},
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print("=== REQUEST TIMEOUT ===");
+          throw Exception('Connection timeout. Please check your server IP and network connection.');
+        },
       );
 
       // Log JSON response to terminal
@@ -306,12 +325,27 @@ class _LoginPageState extends State<LoginPage> {
         if (jsondata['status'] == 'success') {
           User user = User.fromJson(jsondata['data']);
 
+          /**
+           * REQUIREMENT: Save user session using SharedPreferences
+           * 
+           * After successful login, save user data to SharedPreferences for:
+           * - Session persistence across app restarts
+           * - Auto-login on app startup
+           * - Quick access to user data without API calls
+           * 
+           * Note: user_data contains full user object including profile_image path
+           */
+          SharedPreferences prefs = await SharedPreferences.getInstance();
           if (_rememberMe) {
-            SharedPreferences prefs = await SharedPreferences.getInstance();
+            // Save email/password for auto-login fallback
             await prefs.setString('email', email);
             await prefs.setString('password', password);
             await prefs.setBool('rememberme', true);
           }
+          // Always save user data for session management (even without remember me)
+          // This allows app to load user info on startup without re-login
+          await prefs.setString('user_data', jsonEncode(user.toJson()));
+          await prefs.setString('user_id', user.userId ?? '');
 
           if (mounted) {
             Navigator.pushReplacement(
@@ -348,12 +382,27 @@ class _LoginPageState extends State<LoginPage> {
         }
       }
     } catch (e) {
+      print("=== LOGIN ERROR ===");
+      print("Error: ${e.toString()}");
+      print("Error Type: ${e.runtimeType}");
+      print("===================");
+      
       if (mounted) {
+        String errorMessage = 'Login failed. ';
+        if (e.toString().contains('timeout') || e.toString().contains('Timeout')) {
+          errorMessage += 'Connection timeout. Please check server IP and network.';
+        } else if (e.toString().contains('Failed host lookup') || e.toString().contains('SocketException')) {
+          errorMessage += 'Cannot reach server. Check network connection.';
+        } else {
+          errorMessage += e.toString();
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),

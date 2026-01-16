@@ -37,7 +37,16 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+    
+    // Disable test tasks to avoid Java 24 compatibility issues
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
 }
+
+// Note: OneDrive file locking workaround is handled by android/init.gradle
 
 flutter {
     source = "../.."

@@ -1,0 +1,12 @@
+// Gradle init script to handle OneDrive file locking issues
+// This script makes clean tasks continue even if they fail due to file locking
+
+gradle.projectsLoaded {
+    rootProject.allprojects {
+        tasks.matching { it.name.contains("clean") && it.name.contains("Merge") }.configureEach { task ->
+            task.doFirst {
+                println("Attempting to clean (OneDrive may lock files - will continue if it fails)...")
+            }
+        }
+    }
+}

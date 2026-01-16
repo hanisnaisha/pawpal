@@ -3,11 +3,16 @@ class Pet {
   String? userId;
   String? petName;
   String? petType;
+  String? age;
+  String? gender;
+  String? health;
+  bool? needsHelp;
   String? submissionCategory;
   String? description;
   double? latitude;
   double? longitude;
   String? submissionDate;
+  String? postedByName;
   List<String>? imagePaths;
 
   Pet({
@@ -15,11 +20,16 @@ class Pet {
     this.userId,
     this.petName,
     this.petType,
+    this.age,
+    this.gender,
+    this.health,
+    this.needsHelp,
     this.submissionCategory,
     this.description,
     this.latitude,
     this.longitude,
     this.submissionDate,
+    this.postedByName,
     this.imagePaths,
   });
 
@@ -28,11 +38,16 @@ class Pet {
     userId = json['user_id']?.toString();
     petName = json['pet_name'] ?? json['name'];
     petType = json['pet_type'] ?? json['type'];
+    age = json['age'];
+    gender = json['gender'];
+    health = json['health'];
+    needsHelp = json['needs_help'] == true || json['needs_help'] == 1;
     submissionCategory = json['submission_category'] ?? json['category'];
     description = json['description'];
     latitude = json['latitude'] != null ? double.tryParse(json['latitude'].toString()) : null;
     longitude = json['longitude'] != null ? double.tryParse(json['longitude'].toString()) : null;
     submissionDate = json['submission_date'] ?? json['date'];
+    postedByName = json['posted_by_name'];
     
     // Handle image paths - could be a string or array
     if (json['image_paths'] != null) {
@@ -52,11 +67,16 @@ class Pet {
     data['user_id'] = userId;
     data['pet_name'] = petName;
     data['pet_type'] = petType;
+    data['age'] = age;
+    data['gender'] = gender;
+    data['health'] = health;
+    data['needs_help'] = needsHelp;
     data['submission_category'] = submissionCategory;
     data['description'] = description;
     data['latitude'] = latitude?.toString();
     data['longitude'] = longitude?.toString();
     data['submission_date'] = submissionDate;
+    data['posted_by_name'] = postedByName;
     data['image_paths'] = imagePaths;
     return data;
   }

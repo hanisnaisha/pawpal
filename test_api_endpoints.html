@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PawPal API Endpoint Tester</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        input {
+            padding: 5px;
+            margin: 5px;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 PawPal API Endpoint Tester</h1>
+    <p>Use this page to test your API endpoints before testing in the Flutter app.</p>
+    
+    <div class="test-section">
+        <h3>1. Test Database Connection</h3>
+        <button onclick="testConnection()">Test Connection</button>
+        <div id="connection-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Get All Pets (Public Listing)</h3>
+        <button onclick="getAllPets()">Get All Pets</button>
+        <div id="all-pets-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Get Pet Details</h3>
+        <input type="number" id="pet-id" placeholder="Pet ID" value="1">
+        <button onclick="getPetDetails()">Get Pet Details</button>
+        <div id="pet-details-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. Get My Donations</h3>
+        <input type="number" id="user-id" placeholder="User ID" value="1">
+        <button onclick="getMyDonations()">Get My Donations</button>
+        <div id="donations-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>5. Test Registration (POST)</h3>
+        <p><small>Note: This will create a test user. Check console for response.</small></p>
+        <button onclick="testRegister()">Test Register</button>
+        <div id="register-result" class="result"></div>
+    </div>
+
+    <script>
+        const baseUrl = 'http://localhost/pawpal/api';
+
+        async function testConnection() {
+            const resultDiv = document.getElementById('connection-result');
+            resultDiv.textContent = 'Testing...';
+            resultDiv.className = 'result';
+            
+            try {
+                const response = await fetch(`${baseUrl}/test_connection.php`);
+                const data = await response.json();
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                resultDiv.className = 'result ' + (data.status === 'success' ? 'success' : 'error');
+            } catch (error) {
+                resultDiv.textContent = 'Error: ' + error.message;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function getAllPets() {
+            const resultDiv = document.getElementById('all-pets-result');
+            resultDiv.textContent = 'Loading...';
+            resultDiv.className = 'result';
+            
+            try {
+                const response = await fetch(`${baseUrl}/get_all_pets.php`);
+                const data = await response.json();
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                resultDiv.className = 'result ' + (data.status === 'success' ? 'success' : 'error');
+            } catch (error) {
+                resultDiv.textContent = 'Error: ' + error.message;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function getPetDetails() {
+            const petId = document.getElementById('pet-id').value;
+            const resultDiv = document.getElementById('pet-details-result');
+            resultDiv.textContent = 'Loading...';
+            resultDiv.className = 'result';
+            
+            try {
+                const response = await fetch(`${baseUrl}/get_pet_details.php?pet_id=${petId}`);
+                const data = await response.json();
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                resultDiv.className = 'result ' + (data.status === 'success' ? 'success' : 'error');
+            } catch (error) {
+                resultDiv.textContent = 'Error: ' + error.message;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function getMyDonations() {
+            const userId = document.getElementById('user-id').value;
+            const resultDiv = document.getElementById('donations-result');
+            resultDiv.textContent = 'Loading...';
+            resultDiv.className = 'result';
+            
+            try {
+                const response = await fetch(`${baseUrl}/get_my_donations.php?user_id=${userId}`);
+                const data = await response.json();
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                resultDiv.className = 'result ' + (data.status === 'success' ? 'success' : 'error');
+            } catch (error) {
+                resultDiv.textContent = 'Error: ' + error.message;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testRegister() {
+            const resultDiv = document.getElementById('register-result');
+            resultDiv.textContent = 'Testing...';
+            resultDiv.className = 'result';
+            
+            try {
+                const formData = new FormData();
+                formData.append('name', 'Test User ' + Date.now());
+                formData.append('email', 'test' + Date.now() + '@example.com');
+                formData.append('password', 'test123');
+                formData.append('phone', '1234567890');
+
+                const response = await fetch(`${baseUrl}/register_user.php`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                resultDiv.className = 'result ' + (data.status === 'success' ? 'success' : 'error');
+            } catch (error) {
+                resultDiv.textContent = 'Error: ' + error.message;
+                resultDiv.className = 'result error';
+            }
+        }
+    </script>
+</body>
+</html>

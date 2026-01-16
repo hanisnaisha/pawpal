@@ -54,18 +54,67 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
     super.dispose();
   }
 
+  /**
+   * REQUIREMENT: Load user info on app startup
+   * 
+   * This function is called when the app starts (splash screen).
+   * It attempts to restore the user session from SharedPreferences.
+   * 
+   * Process:
+   * 1. First, try to load saved user_data from SharedPreferences
+   *    - If user_data exists and is valid → Navigate to MainPage (auto-login)
+   *    - This is the primary method (fastest, no API call needed)
+   * 
+   * 2. Fallback: If user_data doesn't exist, try auto-login with email/password
+   *    - Only if "Remember Me" was checked during login
+   *    - Makes API call to verify credentials
+   *    - Updates SharedPreferences with fresh user data
+   * 
+   * 3. If both fail → Navigate to LoginPage
+   * 
+   * This ensures users don't need to login every time they open the app.
+   */
   void _checkAutoLogin() async {
-    // Add a minimum splash duration for better UX
+    // Add a minimum splash duration for better UX (2 seconds)
     await Future.delayed(const Duration(seconds: 2));
 
     SharedPreferences prefs = await SharedPreferences.getInstance();
+    
+    // REQUIREMENT: Load user info on app startup
+    // First, try to load saved user data from SharedPreferences
+    // This is the fastest method - no API call needed
+    String? userDataJson = prefs.getString('user_data');
+    if (userDataJson != null && userDataJson.isNotEmpty) {
+      try {
+        // Parse JSON string to User object
+        Map<String, dynamic> userData = jsonDecode(userDataJson);
+        User user = User.fromJson(userData);
+        
+        // If user data is valid, navigate directly to MainPage
+        // This provides instant login without API call
+        if (mounted && user.userId != null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => MainPage(user: user)),
+          );
+          return;  // Exit early - user session restored successfully
+        }
+      } catch (e) {
+        print("Error loading user data: $e");
+        // If parsing fails, continue to fallback method
+      }
+    }
+    
+    // Fallback: Auto-login with email/password (if Remember Me was checked)
+    // This makes an API call to verify credentials and get fresh user data
     bool? rememberMe = prefs.getBool('rememberme');
     String? email = prefs.getString('email');
     String? password = prefs.getString('password');
 
     if (rememberMe == true && email != null && email.isNotEmpty && password != null && password.isNotEmpty) {
-      _autoLogin(email, password);
+      _autoLogin(email, password);  // Attempt API-based auto-login
     } else {
+      // No saved session - navigate to login page
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -77,9 +126,19 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
 
   void _autoLogin(String email, String password) async {
     try {
+      String baseUrl = MyConfig().baseUrl;
+      if (baseUrl.endsWith('/')) {
+        baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+      }
+      
       var response = await http.post(
-        Uri.parse("${MyConfig().baseUrl}/pawpal/api/login_user.php"),
+        Uri.parse("$baseUrl/pawpal/api/login_user.php"),
         body: {"email": email, "password": password},
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Connection timeout');
+        },
       );
 
       if (mounted) {
@@ -87,6 +146,17 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
           var jsondata = jsonDecode(response.body);
           if (jsondata['status'] == 'success') {
             User user = User.fromJson(jsondata['data']);
+            
+            /**
+             * REQUIREMENT: Save user session using SharedPreferences
+             * 
+             * After successful auto-login, save user data to SharedPreferences.
+             * This ensures the session persists for future app launches.
+             */
+            SharedPreferences prefs = await SharedPreferences.getInstance();
+            await prefs.setString('user_data', jsonEncode(user.toJson()));
+            await prefs.setString('user_id', user.userId ?? '');
+            
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => MainPage(user: user)),

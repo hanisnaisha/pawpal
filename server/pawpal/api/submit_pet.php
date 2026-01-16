@@ -1,20 +1,49 @@
 <?php
-// Disable error display to prevent HTML output
+/**
+ * Submit Pet API Endpoint
+ * 
+ * This API endpoint handles pet submission with images and location data.
+ * 
+ * Features:
+ * - Accepts JSON or form-data input
+ * - Validates all required fields
+ * - Processes and saves up to 3 images (Base64 to filesystem)
+ * - Automatically sets needs_help flag based on submission category
+ * - Saves pet data with age, gender, health status
+ * - Returns JSON response with success/error status
+ * 
+ * Request Method: POST
+ * Content-Type: application/json or application/x-www-form-urlencoded
+ */
+
+// Disable error display to prevent HTML output in JSON responses
+// Errors are caught and returned as JSON instead
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
-// Start output buffering
+// Start output buffering to prevent any accidental output before JSON response
 ob_start();
 
-// Set headers
+// Set CORS headers to allow cross-origin requests from Flutter app
 header("Access-Control-Allow-Origin: *");
 header('Content-Type: application/json');
 
+/**
+ * Helper function to send JSON response and exit
+ * 
+ * @param array $sentArray - Array to encode as JSON and send
+ * 
+ * This function ensures clean JSON output by:
+ * - Clearing any output buffer
+ * - Setting proper JSON content type header
+ * - Encoding array to JSON
+ * - Exiting script execution
+ */
 function sendJsonResponse($sentArray) {
-    ob_clean();
+    ob_clean();  // Clear any previous output
     header('Content-Type: application/json');
     echo json_encode($sentArray);
-    exit();
+    exit();  // Stop script execution after sending response
 }
 
 // Error handler to catch fatal errors
@@ -90,6 +119,12 @@ try {
     $pet_type = trim($data['pet_type']);
     $category = isset($data['category']) ? trim($data['category']) : trim($data['submission_category']);
     $description = trim($data['description']);
+    
+    // Optional fields
+    $age = isset($data['age']) && !empty($data['age']) ? trim($data['age']) : null;
+    $gender = isset($data['gender']) && !empty($data['gender']) ? trim($data['gender']) : null;
+    $health = isset($data['health']) && !empty($data['health']) ? trim($data['health']) : null;
+    $posted_by_name = isset($data['posted_by_name']) && !empty($data['posted_by_name']) ? trim($data['posted_by_name']) : null;
     
     // Location coordinates are required
     $lat = isset($data['lat']) ? floatval($data['lat']) : floatval($data['latitude']);
@@ -184,49 +219,9 @@ try {
     // Get current timestamp (created timestamp)
     $currentTimestamp = date('Y-m-d H:i:s');
     
-    // Reorder pet_id sequentially if there are gaps
-    $reorderResult = $conn->query("SELECT pet_id FROM tbl_pets ORDER BY pet_id ASC");
-    if ($reorderResult && $reorderResult->num_rows > 0) {
-        $pets = $reorderResult->fetch_all(MYSQLI_ASSOC);
-        $expectedId = 1;
-        $needsReorder = false;
-        
-        // Check if reordering is needed
-        foreach ($pets as $pet) {
-            if ($pet['pet_id'] != $expectedId) {
-                $needsReorder = true;
-                break;
-            }
-            $expectedId++;
-        }
-        
-        // Reorder if needed
-        if ($needsReorder) {
-            // Step 1: Set all pet_ids to negative values to avoid conflicts
-            $tempId = -1;
-            foreach ($pets as $pet) {
-                $oldId = $pet['pet_id'];
-                $conn->query("UPDATE tbl_pets SET pet_id = $tempId WHERE pet_id = $oldId");
-                $tempId--;
-            }
-            
-            // Step 2: Set pet_ids to sequential positive values
-            $newId = 1;
-            $tempId = -1;
-            foreach ($pets as $pet) {
-                $conn->query("UPDATE tbl_pets SET pet_id = $newId WHERE pet_id = $tempId");
-                $newId++;
-                $tempId--;
-            }
-            
-            // Reset AUTO_INCREMENT
-            $nextId = count($pets) + 1;
-            $conn->query("ALTER TABLE tbl_pets AUTO_INCREMENT = $nextId");
-        }
-    } else {
-        // If table is empty, reset AUTO_INCREMENT to 1
-        $conn->query("ALTER TABLE tbl_pets AUTO_INCREMENT = 1");
-    }
+    // Note: Removed pet_id reordering code
+    // Keeping gaps in IDs is standard MySQL practice and avoids foreign key issues
+    // IDs are just identifiers - gaps don't affect functionality
     
     // Escape strings for SQL (basic protection)
     $pet_name = $conn->real_escape_string($pet_name);
@@ -235,13 +230,39 @@ try {
     $description = $conn->real_escape_string($description);
     $imagePathsString = $conn->real_escape_string($imagePathsString);
     
+    // Escape optional fields
+    $age = $age ? $conn->real_escape_string($age) : 'NULL';
+    $gender = $gender ? $conn->real_escape_string($gender) : 'NULL';
+    $health = $health ? $conn->real_escape_string($health) : 'NULL';
+    $posted_by_name = $posted_by_name ? $conn->real_escape_string($posted_by_name) : 'NULL';
+    
+    /**
+     * Automatically set needs_help flag based on submission category
+     * 
+     * This determines if the pet needs donations/help:
+     * - "Donation Request" or "Help/Rescue" → needs_help = 1 (shows donation button)
+     * - "Adoption" → needs_help = 0 (adoption only, no donation button)
+     * 
+     * The needs_help flag is used in the Flutter app to show/hide the donation button
+     * on the pet details page.
+     */
+    $needs_help = 0; // Default to 0 (false) - pet doesn't need help
+    if ($category === 'Donation Request' || $category === 'Help/Rescue') {
+        $needs_help = 1; // Set to 1 (true) if pet needs help/donations
+    }
+    
     // Insert pet submission into database
     // Store all form fields, image paths, and created timestamp
     // lat and lng are required
     $sql = "INSERT INTO `tbl_pets` (
         `user_id`, 
+        `posted_by_name`,
         `pet_name`, 
-        `pet_type`, 
+        `pet_type`,
+        `age`,
+        `gender`,
+        `health`,
+        `needs_help`,
         `submission_category`, 
         `description`, 
         `latitude`, 
@@ -250,8 +271,13 @@ try {
         `submission_date`
     ) VALUES (
         '$user_id',
+        " . ($posted_by_name !== 'NULL' ? "'$posted_by_name'" : 'NULL') . ",
         '$pet_name',
         '$pet_type',
+        " . ($age !== 'NULL' ? "'$age'" : 'NULL') . ",
+        " . ($gender !== 'NULL' ? "'$gender'" : 'NULL') . ",
+        " . ($health !== 'NULL' ? "'$health'" : 'NULL') . ",
+        $needs_help,
         '$category',
         '$description',
         '$lat',

@@ -321,19 +321,42 @@ class _RegisterPageState extends State<RegisterPage> {
       String password = _passwordController.text;
       String phone = _phoneController.text.trim();
 
+      // Fix double slash issue - baseUrl ends with /, so remove leading / from path
+      String baseUrl = MyConfig().baseUrl;
+      if (baseUrl.endsWith('/')) {
+        baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+      }
+      String url = "$baseUrl/pawpal/api/register_user.php";
+      
+      print("=== REGISTER REQUEST ===");
+      print("URL: $url");
+      print("Method: POST");
+      print("Name: $name");
+      print("Email: $email");
+      print("Phone: $phone");
+      print("========================");
+
       var response = await http.post(
-        Uri.parse("${MyConfig().baseUrl}/pawpal/api/register_user.php"),
+        Uri.parse(url),
         body: {
           "name": name,
           "email": email,
           "password": password,
           "phone": phone,
         },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print("=== REQUEST TIMEOUT ===");
+          throw Exception('Connection timeout. Please check your server IP and network connection.');
+        },
       );
 
       // Debug: Print response details
-      print('Response status code: ${response.statusCode}');
-      print('Response body: ${response.body}');
+      print("=== REGISTER RESPONSE ===");
+      print('Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+      print("=========================");
       
       if (response.statusCode == 200) {
         try {
@@ -416,12 +439,33 @@ class _RegisterPageState extends State<RegisterPage> {
         }
       }
     } catch (e) {
+      print("=== REGISTER ERROR ===");
+      print("Error: ${e.toString()}");
+      print("Error Type: ${e.runtimeType}");
+      print("=====================");
+      
       if (mounted) {
+        String errorMessage = 'Registration failed. ';
+        if (e.toString().contains('timeout') || e.toString().contains('Timeout')) {
+          errorMessage += 'Connection timeout. Please check:\n';
+          errorMessage += '1. Server IP is correct (${MyConfig().baseUrl})\n';
+          errorMessage += '2. XAMPP Apache is running\n';
+          errorMessage += '3. Device can reach the server';
+        } else if (e.toString().contains('Failed host lookup') || e.toString().contains('SocketException')) {
+          errorMessage += 'Cannot reach server. Please check:\n';
+          errorMessage += '1. Server IP: ${MyConfig().baseUrl}\n';
+          errorMessage += '2. Device is on same network\n';
+          errorMessage += '3. Firewall allows connections';
+        } else {
+          errorMessage += e.toString();
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),

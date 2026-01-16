@@ -32,15 +32,29 @@ register_shutdown_function(function() {
 try {
     require_once 'dbconnect.php';
     
-    if (!isset($conn) || !$conn) {
+    // Check if dbconnect.php was loaded and $conn exists
+    if (!isset($conn)) {
         http_response_code(500);
-        sendJsonResponse(array("status" => "failed", "message" => "Database connection failed"));
+        sendJsonResponse(array("status" => "failed", "message" => "Database connection variable not set. Check dbconnect.php"));
+    }
+    
+    // Check if connection is null (connection failed)
+    if ($conn === null) {
+        http_response_code(500);
+        sendJsonResponse(array("status" => "failed", "message" => "Database connection failed. Please check MySQL service is running and credentials are correct."));
     }
     
     // Check if connection has errors
     if (property_exists($conn, 'connect_error') && $conn->connect_error) {
         http_response_code(500);
         sendJsonResponse(array("status" => "failed", "message" => "Database connection error: " . $conn->connect_error));
+    }
+    
+    // Test the connection with a simple query
+    $testQuery = $conn->query("SELECT 1");
+    if (!$testQuery) {
+        http_response_code(500);
+        sendJsonResponse(array("status" => "failed", "message" => "Database connection test failed: " . $conn->error));
     }
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -88,59 +102,9 @@ try {
         sendJsonResponse(array('status' => 'failed', 'message' => 'Email already registered'));
     }
     
-    // Reorder user_id sequentially if there are gaps
-    $reorderResult = $conn->query("SELECT user_id FROM tbl_users ORDER BY user_id ASC");
-    if ($reorderResult && $reorderResult->num_rows > 0) {
-        $users = $reorderResult->fetch_all(MYSQLI_ASSOC);
-        $expectedId = 1;
-        $needsReorder = false;
-        
-        // Check if reordering is needed
-        foreach ($users as $user) {
-            if ($user['user_id'] != $expectedId) {
-                $needsReorder = true;
-                break;
-            }
-            $expectedId++;
-        }
-        
-        // Reorder if needed
-        if ($needsReorder) {
-            // Step 1: Set all user_ids to negative values to avoid conflicts
-            $tempId = -1;
-            foreach ($users as $user) {
-                $oldId = $user['user_id'];
-                $conn->query("UPDATE tbl_users SET user_id = $tempId WHERE user_id = $oldId");
-                $conn->query("UPDATE tbl_pets SET user_id = $tempId WHERE user_id = $oldId");
-                $tempId--;
-            }
-            
-            // Step 2: Set user_ids to sequential positive values
-            $newId = 1;
-            $tempId = -1;
-            foreach ($users as $user) {
-                $conn->query("UPDATE tbl_users SET user_id = $newId WHERE user_id = $tempId");
-                $conn->query("UPDATE tbl_pets SET user_id = $newId WHERE user_id = $tempId");
-                $newId++;
-                $tempId--;
-            }
-            
-            // Reset AUTO_INCREMENT
-            $nextId = count($users) + 1;
-            $conn->query("ALTER TABLE tbl_users AUTO_INCREMENT = $nextId");
-        }
-    } else {
-        // Check if table is empty and reset AUTO_INCREMENT to 1
-        $countResult = $conn->query("SELECT COUNT(*) as count FROM tbl_users");
-        if ($countResult) {
-            $countRow = $countResult->fetch_assoc();
-            if ($countRow['count'] == 0) {
-                // Reset AUTO_INCREMENT to 1 when table is empty
-                $resetAutoIncrement = "ALTER TABLE tbl_users AUTO_INCREMENT = 1";
-                $conn->query($resetAutoIncrement);
-            }
-        }
-    }
+    // Note: Removed user_id reordering code
+    // Keeping gaps in IDs is standard MySQL practice and avoids foreign key issues
+    // IDs are just identifiers - gaps don't affect functionality
     
     // Get current timestamp
     $currentTimestamp = date('Y-m-d H:i:s');
